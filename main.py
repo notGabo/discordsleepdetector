@@ -2,12 +2,16 @@ import discord
 from os import getenv
 from dotenv import load_dotenv
 from time import time
+from datetime import datetime, timedelta
 
 load_dotenv()
 
 TOKEN = getenv('BOT_TOKEN')
 LISTA_PERSONAS = [int(x) for x in getenv('ID_PERSONAS').split(',')]
 CHANNEL_ID = int(getenv('CHANNEL_ID', 0))
+DEBOUNCE_TIME = 0.5
+
+ultima_actualizacion_estado = {}
 
 offline_times = {}
 
@@ -21,10 +25,19 @@ client = discord.Client(intents=intents)
 @client.event
 async def on_ready():
     print(f'Logged in as {client.user}')
-    print(f'Monitoreando {len(LISTA_PERSONAS)} usuarios')
 
 @client.event
 async def on_presence_update(before, after):
+    # añadir checkeo de debounce
+    momento_actual = time()
+    if after.id in ultima_actualizacion_estado:
+        if momento_actual - ultima_actualizacion_estado[after.id] < DEBOUNCE_TIME:
+            return
+
+    ultima_actualizacion_estado[after.id] = momento_actual
+
+    channel = client.get_channel(CHANNEL_ID)
+
     user = str(await client.fetch_user(after.id))
     if user == 'ldreamzl': user = 'martin'
     elif user == 'nafle': user = 'gabo'
@@ -36,33 +49,38 @@ async def on_presence_update(before, after):
         print("No se ha configurado un canal para enviar mensajes.")
         return
 
-    channel = client.get_channel(CHANNEL_ID)
     if not channel:
         print(f"No se pudo encontrar el canal con ID {CHANNEL_ID}")
         return
-    # cuando un usuario se desconecta
-    if (before.status != discord.Status.offline or before.status != discord.Status.idle) and (after.status == discord.Status.offline or after.status == discord.Status.idle):
-        offline_times[after.id] = time()
-        print(f"{user} se fue.")
 
-    # cuando un usuario se conecta
-    elif (before.status == discord.Status.offline or before.status == discord.Status.idle) and (after.status != discord.Status.offline or after.status != discord.Status.idle):
-        if after.id in offline_times:
-            tiempo_desconectado = time() - offline_times[after.id]
+    estados_online = [discord.Status.online, discord.Status.do_not_disturb, discord.Status.dnd]
+    estados_offline = [discord.Status.idle, discord.Status.offline, discord.Status.invisible]
 
-            tiempo_formateado = format_time(tiempo_desconectado, user)
-            mensaje = 'se conecto' if before.status == discord.Status.offline else 'volvio'
-            #await channel.send(f"<@{after.id}> {mensaje} despues de {tiempo_formateado}.")
-            await channel.send(f"el {user} {mensaje} despues de {tiempo_formateado}.")
+    # Detectar cuando se desconecta y manejar mensaje
+    if (before.status in estados_online) and (after.status in estados_offline):
+        if after.id not in offline_times:
+            offline_times[after.id] = time()
+            hora_actual = datetime.now().time()
+            if hora_actual >= datetime.strptime("03:00", "%H:%M").time() and hora_actual <= datetime.strptime("06:00", "%H:%M").time():
+                await channel.send(f"el {user} por fin, duerme mono culiao q te vai a enfermar")
+            else:
+                await channel.send(f"el {user} se fue a jugar con sus verdaderos amigos")
 
-            # Eliminar del registro ya que está conectado ahora
-            del offline_times[after.id]
-        else:
-            # Si no tenemos registro de desconexión
-            await channel.send(f"{user} se ha conectado. no se desde cuando Dx")
+
+    # Detectar cuando se conecta y manejar mensaje
+    elif (before.status in estados_offline) and (after.status in estados_online):
+        if after.id not in offline_times:
+            await channel.send(f"el {user} se ha conectado. no se desde cuando Dx")
+        tiempo_desconectado = time() - offline_times[after.id]
+        tiempo_formateado = format_time(tiempo_desconectado, user)
+
+        mensaje = 'se conecto' if before.status == discord.Status.offline else 'volvio'
+        await channel.send(f"el {user} {mensaje} despues de {tiempo_formateado}.")
+        del offline_times[after.id]
+
 
 def format_time(seconds, user):
-    """Formatea el tiempo en segundos a un formato legible."""
+    """Formatea el tiempo en segundos a un mensaje utilizable."""
     if seconds < 60:
         return f"{int(seconds)} segundos, omg se demoro poco"
     elif seconds < 3600:
