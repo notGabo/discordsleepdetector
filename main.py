@@ -62,7 +62,7 @@ async def on_presence_update(before, after):
             offline_times[after.id] = time()
             hora_actual = datetime.now().time()
             if hora_actual >= datetime.strptime("03:00", "%H:%M").time() and hora_actual <= datetime.strptime("12:00", "%H:%M").time():
-                await channel.send(f"el {user} por fin, duerme mono culiao q te vai a enfermar")
+                await channel.send(f"el {user} por fin se fue a dormir, duerme mono culiao q te vai a enfermar")
             else:
                 await channel.send(f"el {user} se fue con sus verdaderos amigos")
 
