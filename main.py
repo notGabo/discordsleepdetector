@@ -46,7 +46,7 @@ async def on_presence_update(before, after):
         return
 
     if not CHANNEL_ID:
-        print("No se ha configurado un canal para enviar mensajes.")
+        print("No se ha configurado un canal para enviar mensajes")
         return
 
     if not channel:
@@ -75,7 +75,7 @@ async def on_presence_update(before, after):
         tiempo_formateado = format_time(tiempo_desconectado, user)
 
         mensaje = 'se conecto' if before.status == discord.Status.offline else 'volvio'
-        await channel.send(f"el {user} {mensaje} despues de {tiempo_formateado}.")
+        await channel.send(f"el {user} {mensaje} despues de {tiempo_formateado}")
         del offline_times[after.id]
 
 
