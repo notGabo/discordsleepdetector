@@ -1,4 +1,6 @@
 import discord
+from discord import app_commands
+from discord.ext import commands
 from os import getenv
 from dotenv import load_dotenv
 from time import time
@@ -7,6 +9,7 @@ from datetime import datetime
 load_dotenv()
 
 TOKEN = getenv('BOT_TOKEN')
+switch_status = True
 LISTA_PERSONAS = [int(x) for x in getenv('ID_PERSONAS').split(',')]
 CHANNEL_ID = int(getenv('CHANNEL_ID', 0))
 DEBOUNCE_TIME = 0.5
@@ -19,12 +22,16 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.presences = True
 intents.members = True
-
-client = discord.Client(intents=intents)
+client = commands.Bot(command_prefix="%", intents=intents)
 
 @client.event
 async def on_ready():
     print(f'Logged in as {client.user}')
+    try:
+        synced = await client.tree.sync()
+        print(f"{len(synced)} comandos en total")
+    except Exception as e:
+        print(e)
 
 @client.event
 async def on_presence_update(before, after):
@@ -62,9 +69,9 @@ async def on_presence_update(before, after):
             offline_times[after.id] = time()
             hora_actual = datetime.now().time()
             if hora_actual >= datetime.strptime("03:00", "%H:%M").time() and hora_actual <= datetime.strptime("12:00", "%H:%M").time():
-                await channel.send(f"el {user} por fin se fue a dormir, duerme mono culiao q te vai a enfermar")
+                await channel.send(f"el {user} por fin se fue a dormir, duerme mono culiao q te vai a enfermar") if switch_status else None
             else:
-                await channel.send(f"el {user} se fue con sus verdaderos amigos")
+                await channel.send(f"el {user} se fue con sus verdaderos amigos") if switch_status else None
 
 
     # Detectar cuando se conecta y manejar mensaje
@@ -73,11 +80,32 @@ async def on_presence_update(before, after):
             tiempo_desconectado = time() - offline_times[after.id]
             tiempo_formateado = format_time(tiempo_desconectado, user)
             mensaje = 'se conecto' if before.status == discord.Status.offline else 'volvio'
-            await channel.send(f"el {user} {mensaje} despues de {tiempo_formateado}")
+            await channel.send(f"el {user} {mensaje} despues de {tiempo_formateado}") if switch_status else None
             del offline_times[after.id]
         except Exception as e:
             print(f"Error al calcular tiempo desconectado: {e}")
-            await channel.send(f"el {user} se ha conectado. no se desde cuando Dx")
+            await channel.send(f"el {user} se ha conectado. no se desde cuando Dx") if switch_status else None
+
+# Comandos
+@client.command()
+async def ping_prefix_command(ctx):
+    await ctx.send(f'Pong! {round(client.latency * 1000)}ms')
+
+@client.tree.command(name="ping", description="Responde con Pong!")
+async def ping_slash_command(interaction: discord.Interaction):
+    await interaction.response.send_message(f'Pong! {round(client.latency * 1000)}ms')
+
+
+@client.tree.command(name="switch", description="Activa o desactiva para no floodear el canal (true -> Envia mensajes, false -> No envia mensajes)")
+@app_commands.choices(option=[
+    app_commands.Choice(name="true", value=1),
+    app_commands.Choice(name="false", value=0)
+])
+async def switch_command(interaction: discord.Interaction, option: int):
+    global switch_status
+    switch_status = bool(option)
+    mensaje = "Se enviaran mensajes" if switch_status else "No se enviaran mensajes"
+    await interaction.response.send_message(f"Estado cambiado a: {bool(option)}. {mensaje}")
 
 
 def format_time(seconds, user):
