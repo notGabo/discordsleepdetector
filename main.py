@@ -2,7 +2,7 @@ import discord
 from os import getenv
 from dotenv import load_dotenv
 from time import time
-from datetime import datetime, timedelta
+from datetime import datetime
 
 load_dotenv()
 
@@ -69,14 +69,15 @@ async def on_presence_update(before, after):
 
     # Detectar cuando se conecta y manejar mensaje
     elif (before.status in estados_offline) and (after.status in estados_online):
-        if after.id not in offline_times:
+        try:
+            tiempo_desconectado = time() - offline_times[after.id]
+            tiempo_formateado = format_time(tiempo_desconectado, user)
+            mensaje = 'se conecto' if before.status == discord.Status.offline else 'volvio'
+            await channel.send(f"el {user} {mensaje} despues de {tiempo_formateado}")
+            del offline_times[after.id]
+        except Exception as e:
+            print(f"Error al calcular tiempo desconectado: {e}")
             await channel.send(f"el {user} se ha conectado. no se desde cuando Dx")
-        tiempo_desconectado = time() - offline_times[after.id]
-        tiempo_formateado = format_time(tiempo_desconectado, user)
-
-        mensaje = 'se conecto' if before.status == discord.Status.offline else 'volvio'
-        await channel.send(f"el {user} {mensaje} despues de {tiempo_formateado}")
-        del offline_times[after.id]
 
 
 def format_time(seconds, user):
